@@ -441,6 +441,24 @@ todayList.forEach(b=>{
 
 setInterval(update,1000);
 
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyC9b8i1-UptVKW1Jh98_rgMY0tbvfDziio",
+  authDomain: "boss-timer-803c1.firebaseapp.com",
+  databaseURL: "https://boss-timer-803c1-default-rtdb.firebaseio.com",
+  projectId: "boss-timer-803c1",
+  storageBucket: "boss-timer-803c1.appspot.com",
+  messagingSenderId: "584405925759",
+  appId: "1:584405925759:web:9356c4d41c58bf181644a"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+</script>
 </script>
 
 </body>
