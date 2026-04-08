@@ -24,6 +24,16 @@
     z-index:-1;
 }
 
+
+/* ===== NEXT BOSS (BLUE GLOW) ===== */
+.next::after{
+    box-shadow:
+        0 0 12px #00e5ff,
+        0 0 30px #00e5ff,
+        0 0 55px #00e5ff;
+    opacity:1;
+}
+
 /* ===== ALIVE (GREEN BLINK) ===== */
 .alive::after{
     box-shadow:
@@ -221,6 +231,50 @@ button{
     letter-spacing:2px;
 }
 
+
+/* ===== MOBILE RESPONSIVE ===== */
+@media (max-width: 768px){
+
+    .container{
+        width:100%;
+        padding:10px;
+    }
+
+    .logo{
+        width:90px;
+        height:90px;
+    }
+
+    h1{
+        font-size:20px;
+        letter-spacing:1px;
+    }
+
+    /* STACK LAYOUT */
+    .row, .today-row{
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto auto auto;
+        gap:6px;
+        font-size:12px;
+    }
+
+    .today-header{
+        display:none; /* hide header on mobile */
+    }
+
+    /* COLUMN REORDER */
+    .name{ grid-column:1 / span 2; font-size:14px; }
+    .status{ grid-column:1; }
+    .respawn{ grid-column:2; }
+    .cd{ grid-column:1; }
+    .tod{ grid-column:2; }
+
+    button{
+        grid-column:1 / span 2;
+        width:100%;
+    }
+}
+
 </style>
 </head>
 
@@ -387,6 +441,7 @@ function setNow(name){
 // ===== UPDATE =====
 function update(){
 
+let allBosses = [];
 let todayList=[];
 let today=new Date().getDay();
 
@@ -405,8 +460,12 @@ n = nextInterval(tod, b.h);
     n = nextSchedule(b.times);
 }
 
+if(n){
+    allBosses.push({name:b.name, time:n});
+}
+
     let row=document.getElementById("row_"+b.name);
-    row.classList.remove("alive","today","soon");
+    row.classList.remove("alive","today","soon","next");
 
     let diff=n?(n-new Date())/1000:null;
     let status="SET";
@@ -426,6 +485,18 @@ n = nextInterval(tod, b.h);
     document.getElementById("c_"+b.name).innerText=cd(n);
 
 });
+
+// ===== NEXT BOSS HIGHLIGHT =====
+allBosses.sort((a,b)=>a.time-b.time);
+
+if(allBosses.length > 0){
+    let nextBoss = allBosses[0];
+
+    let nextRow = document.getElementById("row_" + nextBoss.name);
+    if(nextRow){
+        nextRow.classList.add("next");
+    }
+}
 
 // ===== TODAY PANEL =====
 let box=document.getElementById("todayBox");
@@ -459,6 +530,8 @@ setInterval(update,1000);
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
 <script>
+</script>
+<script>
 const firebaseConfig = {
   apiKey: "AIzaSyC9b8i1-UptVKW1Jh98_rgMY0tbvfDziio",
   authDomain: "boss-timer-803c1.firebaseapp.com",
@@ -471,8 +544,9 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+
+// ✅ SINGLE CLEAN LISTENER
 db.ref("bosses").on("value", snapshot => {
-    db.ref("bosses").on("value", snapshot => {
     bossData = snapshot.val() || {};
 
     Object.keys(bossData).forEach(name => {
@@ -481,17 +555,9 @@ db.ref("bosses").on("value", snapshot => {
             input.value = bossData[name];
         }
     });
-    update(); // force instant refresh
-});
 
-    Object.keys(data).forEach(name => {
-        const input = document.getElementById("tod_" + name);
-        if(input){
-            input.value = data[name];
-        }
-    });
+    update(); // instant refresh
 });
 </script>
-
 </body>
 </html>
