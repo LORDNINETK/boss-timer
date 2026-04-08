@@ -246,6 +246,8 @@ button{
 </div>
 
 <script>
+// ===== GlOBAL STORAGE =====
+let bossData = {};
 
 // ===== DATA =====
 const dynamicBosses = [
@@ -286,9 +288,13 @@ const kransiaBosses = [
 const DAY_MAP = {Sunday:0,Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5,Saturday:6};
 
 // ===== STORAGE =====
-function saveTOD(n,v){ localStorage.setItem(n,v); }
-function loadTOD(n){ return localStorage.getItem(n)||""; }
+function saveTOD(name, value){
+    db.ref("bosses/" + name).set(value);
+}
 
+function loadTOD(name){
+    return bossData[name] || "";
+}
 // ===== CALC =====
 function nextInterval(tod,h){
     if(!tod.includes(":")) return null;
@@ -353,7 +359,8 @@ function build(title,data,container,isDynamic=false){
         <div class="respawn" id="r_${b.name}">--</div>
         <div class="cd" id="c_${b.name}">--</div>
         <div class="tod">
-            ${isDynamic ? `<input value="${loadTOD(b.name)}" onchange="saveTOD('${b.name}',this.value)">` : "--"}
+            ${isDynamic ? `<input id="tod_${b.name}" value="${loadTOD(b.name)}" 
+       onchange="saveTOD('${b.name}',this.value)">` : "--"}
         </div>
         ${isDynamic ? `<button onclick="setNow('${b.name}')">Now</button>` : ""}
         `;
@@ -374,7 +381,7 @@ function setNow(name){
     let ap=h>=12?"PM":"AM";
     h=h%12||12;
     saveTOD(name,`${h}:${m} ${ap}`);
-    location.reload();
+    
 }
 
 // ===== UPDATE =====
@@ -389,9 +396,14 @@ let today=new Date().getDay();
 
 .forEach(b=>{
 
-    let n = b.type==="dyn"
-    ? nextInterval(loadTOD(b.name),b.h)
-    : nextSchedule(b.times);
+    let n;
+
+if(b.type === "dyn"){
+    let tod = loadTOD(b.name);
+n = nextInterval(tod, b.h);
+}else{
+    n = nextSchedule(b.times);
+}
 
     let row=document.getElementById("row_"+b.name);
     row.classList.remove("alive","today","soon");
@@ -440,6 +452,7 @@ todayList.forEach(b=>{
 }
 
 setInterval(update,1000);
+</script>
 
 <!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -458,7 +471,26 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-</script>
+db.ref("bosses").on("value", snapshot => {
+    db.ref("bosses").on("value", snapshot => {
+    bossData = snapshot.val() || {};
+
+    Object.keys(bossData).forEach(name => {
+        const input = document.getElementById("tod_" + name);
+        if(input){
+            input.value = bossData[name];
+        }
+    });
+    update(); // force instant refresh
+});
+
+    Object.keys(data).forEach(name => {
+        const input = document.getElementById("tod_" + name);
+        if(input){
+            input.value = data[name];
+        }
+    });
+});
 </script>
 
 </body>
