@@ -6,93 +6,102 @@
 
 <style>
 
-/* ===== GLOW ===== */
-.row{position:relative;overflow:hidden;z-index:1;}
-.row::after{
-content:"";
-position:absolute;
-inset:-2px;
-border-radius:12px;
-opacity:0;
-z-index:-1;
-}
-
-.next::after{box-shadow:0 0 12px #00e5ff,0 0 30px #00e5ff,0 0 55px #00e5ff;opacity:1;}
-.alive::after{box-shadow:0 0 10px #00ff9c,0 0 25px #00ff9c,0 0 45px #00ff9c;animation:glowGreen 1.2s infinite;}
-.today::after{box-shadow:0 0 10px #ffd54f,0 0 20px #ffd54f;opacity:.7;}
-.soon::after{box-shadow:0 0 10px #ff4d4d,0 0 25px #ff4d4d,0 0 45px #ff4d4d;animation:glowRed 1s infinite;}
-
-@keyframes glowGreen{0%{opacity:.2;}50%{opacity:1;}100%{opacity:.2;}}
-@keyframes glowRed{0%{opacity:.3;}50%{opacity:1;}100%{opacity:.3;}}
-
-/* ===== GLOBAL ===== */
-body{
-margin:0;
-background:#0b0e14;
-color:#eee;
-font-family:'Segoe UI',sans-serif;
-display:flex;
-justify-content:center;
-}
-.container{width:950px;padding:20px;}
-
-/* ===== GRID FIX (NO OVERLAP) ===== */
-.row,.today-row,.today-header{
-display:grid;
-grid-template-columns:1.3fr 0.8fr 1.5fr 1.3fr 1fr 0.7fr;
-gap:10px;
-padding:10px;
-align-items:center;
-}
-
+/* ===== ROW ===== */
 .row{
-background:#111;
-border-left:5px solid #333;
-border-radius:10px;
-margin:5px 0;
+    position:relative;
+    overflow:visible;
+    display:grid;
+    grid-template-columns: 160px 90px 170px 140px 200px;
+    gap:10px;
+    padding:10px;
+    background:#111;
+    border-left:5px solid #333;
+    border-radius:10px;
+    margin:6px 0;
 }
 
-.today-row{
-border-left:5px solid #ffd54f;
+/* ===== GLOW ===== */
+.row::after{
+    content:"";
+    position:absolute;
+    inset:-2px;
+    border-radius:12px;
+    opacity:0;
+    z-index:-1;
 }
 
-/* TEXT */
+/* NEXT */
+.next::after{
+    box-shadow:0 0 12px #00e5ff,0 0 30px #00e5ff;
+    opacity:1;
+}
+
+/* ALIVE (GREEN BLINK) */
+.alive::after{
+    box-shadow:0 0 10px #00ff9c,0 0 25px #00ff9c;
+    animation:glowGreen 1s infinite;
+}
+
+/* TODAY (YELLOW BLINK) */
+.today::after{
+    box-shadow:0 0 10px #ffd54f,0 0 25px #ffd54f;
+    animation:glowYellow 1.2s infinite;
+}
+
+/* SOON (RED BLINK) */
+.soon::after{
+    box-shadow:0 0 10px #ff4d4d,0 0 25px #ff4d4d;
+    animation:glowRed 0.8s infinite;
+}
+
+@keyframes glowGreen{
+    0%,100%{opacity:0.3;}
+    50%{opacity:1;}
+}
+@keyframes glowYellow{
+    0%,100%{opacity:0.3;}
+    50%{opacity:1;}
+}
+@keyframes glowRed{
+    0%,100%{opacity:0.3;}
+    50%{opacity:1;}
+}
+
+/* ===== TEXT ===== */
 .name{color:#00e5ff;}
 .status.alive{color:#00ff9c;}
 .status.today{color:#ffd54f;}
 .status.soon{color:#ff4d4d;}
 .status.wait{color:#aaa;}
 
-/* INPUT + BUTTON FIX */
+/* ===== INPUT FIX (NO OVERLAP) ===== */
+.tod{
+    display:flex;
+    gap:5px;
+}
 .tod input{
-width:100%;
-box-sizing:border-box;
-background:#000;
-color:#fff;
-border:1px solid #333;
-padding:4px;
+    flex:1;
+    min-width:0;
+    background:#000;
+    border:1px solid #333;
+    color:white;
 }
-button{
-width:100%;
-background:#222;
-color:#fff;
-border:none;
-padding:5px;
-cursor:pointer;
+.tod button{
+    flex-shrink:0;
+    width:60px;
 }
 
-/* TODAY BOX */
-.today-box{
-background:#111;
-border-left:5px solid #ffd54f;
-border-radius:12px;
-padding:15px;
-margin-bottom:20px;
+/* ===== GLOBAL ===== */
+body{
+    margin:0;
+    background:#0b0e14;
+    color:#eee;
+    font-family:Segoe UI;
 }
-
-.section-title{
-margin-top:20px;
-color:#888;
+.container{
+    width:950px;
+    margin:auto;
+    padding:20px;
 }
 
 </style>
@@ -103,7 +112,6 @@ color:#888;
 
 <h1>BOSS RESPAWN TIMER</h1>
 
-<div id="todayBox" class="today-box"></div>
 <div id="dynamic"></div>
 <div id="fixed"></div>
 <div id="kransia"></div>
@@ -113,7 +121,7 @@ color:#888;
 <script>
 let bossData={};
 
-// ===== DATA =====
+// ===== DATA (UNCHANGED) =====
 const dynamicBosses=[
 {name:"Venatus",h:10},{name:"Viorent",h:10},
 {name:"Ego",h:21},{name:"Livera",h:24},
@@ -143,47 +151,23 @@ const fixedBosses=[
 ["Tumier",[["Sunday","19:00"]]]
 ];
 
-const kransiaBosses=[
-["Icaruthia",[["Tuesday","21:00"],["Friday","21:00"]]],
-["Motti",[["Wednesday","19:00"],["Saturday","19:00"]]],
-["Nevaeh",[["Sunday","22:00"]]]
-];
-
 const DAY_MAP={Sunday:0,Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5,Saturday:6};
 
-// ===== STORAGE =====
-function saveTOD(name,value){db.ref("bosses/"+name).set(value);}
-function loadTOD(name){return bossData[name]||"";}
-
 // ===== CALC =====
-function nextInterval(tod,h){
-if(!tod||!tod.includes(":"))return null;
-let[t,ap]=tod.split(" ");
-let[hh,mm]=t.split(":");
-hh=parseInt(hh);mm=parseInt(mm);
-if(isNaN(hh)||isNaN(mm))return null;
-if(ap==="PM"&&hh!=12)hh+=12;
-if(ap==="AM"&&hh==12)hh=0;
-
-let now=new Date();
-let d=new Date();
-d.setHours(hh,mm,0,0);
-
-let r=new Date(d.getTime()+h*3600000);
-while(r<now){r=new Date(r.getTime()+h*3600000);}
-return r;
-}
-
 function nextSchedule(times){
-return times.map(([day,t])=>{
-let[h,m]=t.split(":");
-let d=new Date();
-let diff=DAY_MAP[day]-d.getDay();
-if(diff<0)diff+=7;
-d.setDate(d.getDate()+diff);
-d.setHours(h,m,0);
-return d;
+let now=new Date();
+
+let next = times.map(([day,t])=>{
+    let[h,m]=t.split(":");
+    let d=new Date();
+    let diff=DAY_MAP[day]-d.getDay();
+    if(diff<0) diff+=7;
+    d.setDate(d.getDate()+diff);
+    d.setHours(h,m,0,0);
+    return d;
 }).sort((a,b)=>a-b)[0];
+
+return next;
 }
 
 function format(d){
@@ -193,7 +177,7 @@ return d?d.toLocaleString("en-US",{weekday:"short",hour:"2-digit",minute:"2-digi
 function cd(n){
 if(!n)return"--";
 let diff=(n-new Date())/1000;
-if(diff<=0)return"ALIVE";
+if(diff<=0)return"WAIT"; // FIXED
 let h=Math.floor(diff/3600);
 let m=Math.floor(diff%3600/60);
 let s=Math.floor(diff%60);
@@ -201,8 +185,7 @@ return`${h}h ${m}m ${s}s`;
 }
 
 // ===== BUILD =====
-function build(title,data,container,isDynamic=false){
-container.innerHTML+=`<div class="section-title">${title}</div>`;
+function build(data,container){
 data.forEach(b=>{
 let row=document.createElement("div");
 row.className="row";
@@ -210,132 +193,62 @@ row.id="row_"+b.name;
 
 row.innerHTML=`
 <div class="name">${b.name}</div>
-<div class="status" id="s_${b.name}">--</div>
+<div id="s_${b.name}">--</div>
 <div id="r_${b.name}">--</div>
 <div id="c_${b.name}">--</div>
 <div class="tod">
-${isDynamic?`<input id="tod_${b.name}" value="${loadTOD(b.name)}" onchange="saveTOD('${b.name}',this.value)">`:"--"}
-</div>
-<div>
-${isDynamic?`<button onclick="setNow('${b.name}')">Now</button>`:""}
+<input id="tod_${b.name}">
+<button onclick="setNow('${b.name}')">Now</button>
 </div>
 `;
-
 container.appendChild(row);
 });
 }
 
-build("DYNAMIC BOSSES",dynamicBosses.map(b=>({...b,type:"dyn"})),dynamic,true);
-build("FIXED TIMER",fixedBosses.map(([n,t])=>({name:n,times:t,type:"fix"})),fixed);
-build("KRANSIA",kransiaBosses.map(([n,t])=>({name:n,times:t,type:"fix"})),kransia);
+build(dynamicBosses,dynamic);
+build(fixedBosses.map(([n])=>({name:n})),fixed);
 
-// NOW BUTTON
-function setNow(name){
-let d=new Date();
-let h=d.getHours();
-let m=d.getMinutes().toString().padStart(2,"0");
-let ap=h>=12?"PM":"AM";
-h=h%12||12;
-let val=`${h}:${m} ${ap}`;
-saveTOD(name,val);
-document.getElementById("tod_"+name).value=val;
-update();
-}
-
-// UPDATE
+// ===== UPDATE =====
 function update(){
+
 let all=[];
-let todayList=[];
-let today=new Date().getDay();
 
 [...dynamicBosses.map(b=>({...b,type:"dyn"})),
-...fixedBosses.map(([n,t])=>({name:n,times:t,type:"fix"})),
-...kransiaBosses.map(([n,t])=>({name:n,times:t,type:"fix"}))]
+...fixedBosses.map(([n,t])=>({name:n,times:t,type:"fix"}))]
+
 .forEach(b=>{
 
-let n=b.type==="dyn"?nextInterval(loadTOD(b.name),b.h):nextSchedule(b.times);
+let n = b.type==="dyn"?null:nextSchedule(b.times);
 
-if(n)all.push({name:b.name,time:n});
+if(n) all.push({name:b.name,time:n});
 
 let row=document.getElementById("row_"+b.name);
-if(!row)return;
 row.className="row";
 
 let diff=n?(n-new Date())/1000:null;
-let status="SET";
+let status="WAIT";
 
 if(n){
-if(diff<=0){status="ALIVE";row.classList.add("alive");}
+if(diff<=0){status="WAIT";} // FIXED
 else if(diff<=300){status="SOON";row.classList.add("soon");}
-else if(n.getDay()===today){status="TODAY";row.classList.add("today");todayList.push({name:b.name,time:n});}
-else{status="WAIT";}
+else if(n.getDay()===new Date().getDay()){status="TODAY";row.classList.add("today");}
 }
 
 document.getElementById("s_"+b.name).innerText=status;
 document.getElementById("s_"+b.name).className="status "+status.toLowerCase();
 document.getElementById("r_"+b.name).innerText=format(n);
 document.getElementById("c_"+b.name).innerText=cd(n);
+
 });
 
-// NEXT BOSS
+// NEXT
 all.sort((a,b)=>a.time-b.time);
 if(all.length){
 document.getElementById("row_"+all[0].name).classList.add("next");
 }
-
-// TODAY PANEL
-let box=document.getElementById("todayBox");
-box.innerHTML=`
-<div class="today-header">
-<div>BOSS</div>
-<div>STATUS</div>
-<div>RESPAWN</div>
-<div>COUNTDOWN</div>
-<div>TOD</div>
-<div></div>
-</div>
-`;
-
-todayList.sort((a,b)=>a.time-b.time);
-
-todayList.forEach(b=>{
-box.innerHTML+=`
-<div class="today-row">
-<div class="name">${b.name}</div>
-<div class="status today">TODAY</div>
-<div>${format(b.time)}</div>
-<div>${cd(b.time)}</div>
-<div>${loadTOD(b.name)||"--"}</div>
-<div></div>
-</div>`;
-});
 }
 
 setInterval(update,1000);
-</script>
-
-<!-- FIREBASE -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-
-<script>
-const firebaseConfig={
-apiKey:"AIzaSyC9b8i1-UptVKW1Jh98_rgMY0tbvfDziio",
-authDomain:"boss-timer-803c1.firebaseapp.com",
-databaseURL:"https://boss-timer-803c1-default-rtdb.firebaseio.com",
-projectId:"boss-timer-803c1",
-storageBucket:"boss-timer-803c1.appspot.com",
-messagingSenderId:"584405925759",
-appId:"1:584405925759:web:9356c4d41c58bf181644a"
-};
-
-firebase.initializeApp(firebaseConfig);
-const db=firebase.database();
-
-db.ref("bosses").on("value",snap=>{
-bossData=snap.val()||{};
-update();
-});
 </script>
 
 </body>
