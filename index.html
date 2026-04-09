@@ -6,15 +6,14 @@
 
 <style>
 
-/* ===== KEEP ALL YOUR STYLE EXACTLY ===== */
-/* (UNCHANGED — your full CSS is intact) */
-
+/* ===== OUTER GLOW EFFECT ===== */
 .row{
     position:relative;
     overflow:visible;
     z-index:1;
 }
 
+/* GLOW */
 .row::after{
     content:"";
     position:absolute;
@@ -25,34 +24,27 @@
     z-index:-1;
 }
 
+/* NEXT */
 .next::after{
-    box-shadow:
-        0 0 12px #00e5ff,
-        0 0 30px #00e5ff,
-        0 0 55px #00e5ff;
+    box-shadow:0 0 12px #00e5ff,0 0 30px #00e5ff,0 0 55px #00e5ff;
     opacity:1;
 }
 
+/* ALIVE */
 .alive::after{
-    box-shadow:
-        0 0 10px #00ff9c,
-        0 0 25px #00ff9c,
-        0 0 45px #00ff9c;
+    box-shadow:0 0 10px #00ff9c,0 0 25px #00ff9c,0 0 45px #00ff9c;
     animation:glowGreen 1.2s infinite ease-in-out;
 }
 
+/* TODAY */
 .today::after{
-    box-shadow:
-        0 0 10px #ffd54f,
-        0 0 20px #ffd54f;
-    opacity:0.6;
+    box-shadow:0 0 10px #ffd54f,0 0 20px #ffd54f;
+    opacity:0.7;
 }
 
+/* SOON */
 .soon::after{
-    box-shadow:
-        0 0 10px #ff4d4d,
-        0 0 25px #ff4d4d,
-        0 0 45px #ff4d4d;
+    box-shadow:0 0 10px #ff4d4d,0 0 25px #ff4d4d,0 0 45px #ff4d4d;
     animation:glowRed 1s infinite ease-in-out;
 }
 
@@ -61,48 +53,51 @@
     50%{opacity:1;}
     100%{opacity:0.2;}
 }
-
 @keyframes glowRed{
     0%{opacity:0.3;}
     50%{opacity:1;}
     100%{opacity:0.3;}
 }
 
+/* GLOBAL */
 body{
     margin:0;
     background:#0b0e14;
-    font-family:'Segoe UI','Inter',sans-serif;
+    font-family:'Segoe UI',sans-serif;
     color:#eee;
     display:flex;
     justify-content:center;
 }
-
 .container{
     width:950px;
     padding:20px;
 }
 
-.header{
-    text-align:center;
-    margin-bottom:20px;
-}
-
+/* HEADER */
+.header{text-align:center;margin-bottom:20px;}
 .logo{
-    width:130px;
-    height:130px;
-    border-radius:50%;
-    object-fit:cover;
-    background:#fff;
-    padding:6px;
+    width:120px;height:120px;border-radius:50%;
+    background:white;padding:6px;
 }
+.guild{margin-top:10px;font-size:20px;}
+.subguild{font-size:12px;color:#aaa;}
 
 h1{text-align:center;}
 
+/* TODAY BOX */
+.today-box{
+    background:#111;
+    border-left:5px solid #ffd54f;
+    border-radius:12px;
+    padding:15px;
+    margin-bottom:20px;
+}
+
+/* GRID */
 .row,.today-row,.today-header{
     display:grid;
-    grid-template-columns: 180px 100px 180px 150px 120px auto;
+    grid-template-columns:180px 100px 180px 150px 120px auto;
     gap:10px;
-    align-items:center;
     padding:10px;
 }
 
@@ -110,16 +105,29 @@ h1{text-align:center;}
     background:#111;
     border-left:5px solid #333;
     border-radius:10px;
-    margin:6px 0;
+    margin:5px 0;
 }
 
-.name{ color:#00e5ff; }
+.today-row{
+    border-left:5px solid #ffd54f;
+}
+
+/* TEXT */
+.name{color:#00e5ff;}
+.status.alive{color:#00ff9c;}
+.status.today{color:#ffd54f;}
+.status.soon{color:#ff4d4d;}
+.status.wait{color:#aaa;}
+
+input{background:#000;color:#fff;border:1px solid #333;}
+button{background:#222;color:white;border:none;padding:5px;}
+
+.section-title{margin-top:20px;color:#888;}
 
 </style>
 </head>
 
 <body>
-
 <div class="container">
 
 <div class="header">
@@ -131,7 +139,6 @@ h1{text-align:center;}
 <h1>BOSS RESPAWN TIMER</h1>
 
 <div id="todayBox" class="today-box"></div>
-
 <div id="dynamic"></div>
 <div id="fixed"></div>
 <div id="kransia"></div>
@@ -139,31 +146,24 @@ h1{text-align:center;}
 </div>
 
 <script>
+let bossData={};
 
-// ✅ FIX: DEFINE CONTAINERS
-const dynamic = document.getElementById("dynamic");
-const fixed = document.getElementById("fixed");
-const kransia = document.getElementById("kransia");
-
-// ===== STORAGE =====
-let bossData = {};
-
-// ===== YOUR FULL DATA (UNCHANGED) =====
-const dynamicBosses = [
-{ name:"Venatus", h:10 },{ name:"Viorent", h:10 },
-{ name:"Ego", h:21 },{ name:"Livera", h:24 },
-{ name:"Araneo", h:24 },{ name:"Undomiel", h:24 },
-{ name:"LadyDalia", h:18 },{ name:"GeneralAquleus", h:29 },
-{ name:"Amentis", h:29 },{ name:"BaronBraudmore", h:32 },
-{ name:"Wannitas", h:48 },{ name:"Metus", h:48 },
-{ name:"Duplican", h:48 },{ name:"Shuliar", h:35 },
-{ name:"Gareth", h:32 },{ name:"Titore", h:37 },
-{ name:"Larba", h:35 },{ name:"Catena", h:35 },
-{ name:"Secreta", h:62 },{ name:"Ordo", h:62 },
-{ name:"Asta", h:62 },{ name:"Supore", h:62 }
+// ===== DATA =====
+const dynamicBosses=[
+{name:"Venatus",h:10},{name:"Viorent",h:10},
+{name:"Ego",h:21},{name:"Livera",h:24},
+{name:"Araneo",h:24},{name:"Undomiel",h:24},
+{name:"LadyDalia",h:18},{name:"GeneralAquleus",h:29},
+{name:"Amentis",h:29},{name:"BaronBraudmore",h:32},
+{name:"Wannitas",h:48},{name:"Metus",h:48},
+{name:"Duplican",h:48},{name:"Shuliar",h:35},
+{name:"Gareth",h:32},{name:"Titore",h:37},
+{name:"Larba",h:35},{name:"Catena",h:35},
+{name:"Secreta",h:62},{name:"Ordo",h:62},
+{name:"Asta",h:62},{name:"Supore",h:62}
 ];
 
-const fixedBosses = [
+const fixedBosses=[
 ["Neutro",[["Tuesday","19:00"],["Thursday","11:30"]]],
 ["Clemantis",[["Monday","11:30"],["Thursday","19:00"]]],
 ["Saphirus",[["Sunday","17:00"],["Tuesday","11:30"]]],
@@ -178,112 +178,174 @@ const fixedBosses = [
 ["Tumier",[["Sunday","19:00"]]]
 ];
 
-const kransiaBosses = [
+const kransiaBosses=[
 ["Icaruthia",[["Tuesday","21:00"],["Friday","21:00"]]],
 ["Motti",[["Wednesday","19:00"],["Saturday","19:00"]]],
 ["Nevaeh",[["Sunday","22:00"]]]
 ];
 
-const DAY_MAP = {Sunday:0,Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5,Saturday:6};
+const DAY_MAP={Sunday:0,Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5,Saturday:6};
 
-// ===== FUNCTIONS =====
+// ===== STORAGE =====
 function saveTOD(name,value){
-    db.ref("bosses/"+name).set(value);
+db.ref("bosses/"+name).set(value);
 }
-
 function loadTOD(name){
-    return bossData[name]||"";
+return bossData[name]||"";
 }
 
+// ===== FIXED TIME CALC =====
 function nextInterval(tod,h){
-    if(!tod.includes(":")) return null;
-    let now=new Date();
-    let [t,ap]=tod.split(" ");
-    let [hh,mm]=t.split(":");
-    hh=parseInt(hh);
-    if(ap==="PM" && hh!=12) hh+=12;
-    if(ap==="AM" && hh==12) hh=0;
-    let d=new Date();
-    d.setHours(hh,mm,0);
-    let r=new Date(d.getTime()+h*3600000);
-    while(r<now) r=new Date(r.getTime()+h*3600000);
-    return r;
+if(!tod||!tod.includes(":"))return null;
+
+let parts=tod.split(" ");
+if(parts.length<2)return null;
+
+let[t,ap]=parts;
+let[hh,mm]=t.split(":");
+
+hh=parseInt(hh);mm=parseInt(mm);
+if(isNaN(hh)||isNaN(mm))return null;
+
+if(ap==="PM"&&hh!=12)hh+=12;
+if(ap==="AM"&&hh==12)hh=0;
+
+let now=new Date();
+let d=new Date();
+d.setHours(hh,mm,0,0);
+
+let r=new Date(d.getTime()+h*3600000);
+while(r<now){r=new Date(r.getTime()+h*3600000);}
+
+return r;
 }
 
 function nextSchedule(times){
-    return times.map(([day,t])=>{
-        let [h,m]=t.split(":");
-        let d=new Date();
-        let diff=DAY_MAP[day]-d.getDay();
-        if(diff<0) diff+=7;
-        d.setDate(d.getDate()+diff);
-        d.setHours(h,m,0);
-        return d;
-    }).sort((a,b)=>a-b)[0];
+let now=new Date();
+return times.map(([day,t])=>{
+let[h,m]=t.split(":");
+let d=new Date();
+let diff=DAY_MAP[day]-d.getDay();
+if(diff<0)diff+=7;
+d.setDate(d.getDate()+diff);
+d.setHours(h,m,0);
+return d;
+}).sort((a,b)=>a-b)[0];
 }
 
 function format(d){
-    return d.toLocaleString("en-US",{weekday:"short",hour:"2-digit",minute:"2-digit"});
+return d?d.toLocaleString("en-US",{weekday:"short",hour:"2-digit",minute:"2-digit"}):"--";
 }
 
 function cd(n){
-    if(!n) return "--";
-    let diff=(n-new Date())/1000;
-    if(diff<=0) return "ALIVE";
-    let h=Math.floor(diff/3600);
-    let m=Math.floor(diff%3600/60);
-    let s=Math.floor(diff%60);
-    return `${h}h ${m}m ${s}s`;
+if(!n)return"--";
+let diff=(n-new Date())/1000;
+if(diff<=0)return"ALIVE";
+let h=Math.floor(diff/3600);
+let m=Math.floor(diff%3600/60);
+let s=Math.floor(diff%60);
+return`${h}h ${m}m ${s}s`;
 }
 
 // ===== BUILD =====
 function build(title,data,container,isDynamic=false){
-    container.innerHTML += `<div class="section-title">${title}</div>`;
-    data.forEach(b=>{
-        let row=document.createElement("div");
-        row.className="row";
-        row.id="row_"+b.name;
+container.innerHTML+=`<div class="section-title">${title}</div>`;
+data.forEach(b=>{
+let row=document.createElement("div");
+row.className="row";
+row.id="row_"+b.name;
 
-        row.innerHTML=`
-        <div class="name">${b.name}</div>
-        <div class="status" id="s_${b.name}">--</div>
-        <div class="respawn" id="r_${b.name}">--</div>
-        <div class="cd" id="c_${b.name}">--</div>
-        <div class="tod">
-        ${isDynamic ? `<input id="tod_${b.name}" value="${loadTOD(b.name)}" onchange="saveTOD('${b.name}',this.value)">` : "--"}
-        </div>
-        ${isDynamic ? `<button onclick="setNow('${b.name}')">Now</button>` : ""}
-        `;
-        container.appendChild(row);
-    });
+row.innerHTML=`
+<div class="name">${b.name}</div>
+<div class="status" id="s_${b.name}">--</div>
+<div class="respawn" id="r_${b.name}">--</div>
+<div class="cd" id="c_${b.name}">--</div>
+<div>
+${isDynamic?`<input id="tod_${b.name}" value="${loadTOD(b.name)}"
+onchange="saveTOD('${b.name}',this.value)">`:"--"}
+</div>
+${isDynamic?`<button onclick="setNow('${b.name}')">Now</button>`:""}
+`;
+container.appendChild(row);
+});
 }
 
-// ===== BUILD ALL =====
 build("DYNAMIC BOSSES",dynamicBosses.map(b=>({...b,type:"dyn"})),dynamic,true);
 build("FIXED TIMER",fixedBosses.map(([n,t])=>({name:n,times:t,type:"fix"})),fixed);
 build("KRANSIA",kransiaBosses.map(([n,t])=>({name:n,times:t,type:"fix"})),kransia);
 
-// ===== UPDATE =====
-function update(){
-    let allBosses=[];
-    [...dynamicBosses.map(b=>({...b,type:"dyn"})),
-     ...fixedBosses.map(([n,t])=>({name:n,times:t,type:"fix"})),
-     ...kransiaBosses.map(([n,t])=>({name:n,times:t,type:"fix"}))]
-    .forEach(b=>{
-        let n=b.type==="dyn"?nextInterval(loadTOD(b.name),b.h):nextSchedule(b.times);
-        if(n) allBosses.push({name:b.name,time:n});
-        document.getElementById("r_"+b.name).innerText=n?format(n):"--";
-        document.getElementById("c_"+b.name).innerText=cd(n);
-    });
+// NOW BUTTON
+function setNow(name){
+let d=new Date();
+let h=d.getHours();
+let m=d.getMinutes().toString().padStart(2,"0");
+let ap=h>=12?"PM":"AM";
+h=h%12||12;
+let val=`${h}:${m} ${ap}`;
+saveTOD(name,val);
+document.getElementById("tod_"+name).value=val;
+update();
+}
 
-    allBosses.sort((a,b)=>a.time-b.time);
-    if(allBosses[0]){
-        document.getElementById("row_"+allBosses[0].name).classList.add("next");
-    }
+// UPDATE
+function update(){
+let all=[];
+let todayList=[];
+let today=new Date().getDay();
+
+[...dynamicBosses.map(b=>({...b,type:"dyn"})),
+...fixedBosses.map(([n,t])=>({name:n,times:t,type:"fix"})),
+...kransiaBosses.map(([n,t])=>({name:n,times:t,type:"fix"}))]
+.forEach(b=>{
+
+let n=b.type==="dyn"?nextInterval(loadTOD(b.name),b.h):nextSchedule(b.times);
+
+if(n)all.push({name:b.name,time:n});
+
+let row=document.getElementById("row_"+b.name);
+if(!row)return;
+row.className="row";
+
+let diff=n?(n-new Date())/1000:null;
+let status="SET";
+
+if(n){
+if(diff<=0){status="ALIVE";row.classList.add("alive");}
+else if(diff<=300){status="SOON";row.classList.add("soon");}
+else if(n.getDay()===today){status="TODAY";row.classList.add("today");todayList.push({name:b.name,time:n});}
+else{status="WAIT";}
+}
+
+document.getElementById("s_"+b.name).innerText=status;
+document.getElementById("s_"+b.name).className="status "+status.toLowerCase();
+document.getElementById("r_"+b.name).innerText=format(n);
+document.getElementById("c_"+b.name).innerText=cd(n);
+});
+
+// NEXT
+all.sort((a,b)=>a.time-b.time);
+if(all.length){
+document.getElementById("row_"+all[0].name).classList.add("next");
+}
+
+// TODAY BOX
+let box=document.getElementById("todayBox");
+box.innerHTML="";
+
+todayList.sort((a,b)=>a.time-b.time);
+todayList.forEach(b=>{
+box.innerHTML+=`
+<div class="today-row">
+<div>${b.name}</div>
+<div>TODAY</div>
+<div>${format(b.time)}</div>
+<div>${cd(b.time)}</div>
+<div>${loadTOD(b.name)||"--"}</div>
+</div>`;
+});
 }
 
 setInterval(update,1000);
-
 </script>
 
 <!-- FIREBASE -->
@@ -291,22 +353,22 @@ setInterval(update,1000);
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyC9b8i1-UptVKW1Jh98_rgMY0tbvfDziio",
-  authDomain: "boss-timer-803c1.firebaseapp.com",
-  databaseURL: "https://boss-timer-803c1-default-rtdb.firebaseio.com",
-  projectId: "boss-timer-803c1",
-  storageBucket: "boss-timer-803c1.appspot.com",
-  messagingSenderId: "584405925759",
-  appId: "1:584405925759:web:9356c4d41c58bf181644a"
+const firebaseConfig={
+apiKey:"AIzaSyC9b8i1-UptVKW1Jh98_rgMY0tbvfDziio",
+authDomain:"boss-timer-803c1.firebaseapp.com",
+databaseURL:"https://boss-timer-803c1-default-rtdb.firebaseio.com",
+projectId:"boss-timer-803c1",
+storageBucket:"boss-timer-803c1.appspot.com",
+messagingSenderId:"584405925759",
+appId:"1:584405925759:web:9356c4d41c58bf181644a"
 };
 
 firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+const db=firebase.database();
 
-db.ref("bosses").on("value", snap=>{
-    bossData=snap.val()||{};
-    update();
+db.ref("bosses").on("value",snap=>{
+bossData=snap.val()||{};
+update();
 });
 </script>
 
