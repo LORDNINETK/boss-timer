@@ -96,7 +96,7 @@ h1{text-align:center;}
 /* GRID */
 .row,.today-row,.today-header{
     display:grid;
-    grid-template-columns:180px 100px 180px 150px 120px auto;
+    grid-template-columns: 160px 90px 180px 150px 120px 70px;
     gap:10px;
     padding:10px;
 }
@@ -255,19 +255,24 @@ let row=document.createElement("div");
 row.className="row";
 row.id="row_"+b.name;
 
-row.innerHTML=`
+row.innerHTML = `
 <div class="name">${b.name}</div>
+
 <div class="status" id="s_${b.name}">--</div>
+
 <div class="respawn" id="r_${b.name}">--</div>
+
 <div class="cd" id="c_${b.name}">--</div>
-<div>
-${isDynamic?`<input id="tod_${b.name}" value="${loadTOD(b.name)}"
-onchange="saveTOD('${b.name}',this.value)">`:"--"}
+
+<div class="tod">
+${isDynamic ? `<input id="tod_${b.name}" value="${loadTOD(b.name)}"
+onchange="saveTOD('${b.name}',this.value)">` : "--"}
 </div>
-${isDynamic?`<button onclick="setNow('${b.name}')">Now</button>`:""}
+
+<div>
+${isDynamic ? <button onclick="setNow('${b.name}')">Now</button> : ""}
+</div>
 `;
-container.appendChild(row);
-});
 }
 
 build("DYNAMIC BOSSES",dynamicBosses.map(b=>({...b,type:"dyn"})),dynamic,true);
@@ -334,16 +339,16 @@ box.innerHTML="";
 
 todayList.sort((a,b)=>a.time-b.time);
 todayList.forEach(b=>{
-box.innerHTML+=`
-<div class="today-row">
-<div>${b.name}</div>
-<div>TODAY</div>
-<div>${format(b.time)}</div>
-<div>${cd(b.time)}</div>
-<div>${loadTOD(b.name)||"--"}</div>
-</div>`;
-});
-}
+box.innerHTML = `
+<div class="today-header">
+<div>BOSS</div>
+<div>STATUS</div>
+<div>RESPAWN</div>
+<div>COUNTDOWN</div>
+<div>TOD</div>
+<div></div>
+</div>
+`;
 
 setInterval(update,1000);
 </script>
