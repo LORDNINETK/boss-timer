@@ -238,6 +238,20 @@ button{
 .today{ border-left-color:#ffd54f; }
 .soon{ border-left-color:#ff4d4d; }
 
+
+.today-row .status.soon{
+    color:#ff4d4d;
+    font-weight:bold;
+}
+
+.today-row.soon::after{
+    box-shadow:
+        0 0 10px #ff4d4d,
+        0 0 25px #ff4d4d,
+        0 0 45px #ff4d4d;
+    animation:glowRed 1s infinite ease-in-out;
+}
+
 /* STATUS TEXT */
 .status::before{
     content:"";
@@ -276,6 +290,20 @@ input{
     color:white;
     padding:4px;
     border-radius:4px;
+}
+
+
+You sent
+/* 🔥 FORCE WHITE CALENDAR ICON */
+input[type="datetime-local"]::-webkit-calendar-picker-indicator{
+    filter: invert(1) brightness(2) contrast(1.2);
+    opacity: 1;
+}
+
+/* Fix entire input look */
+input[type="datetime-local"]{
+    background: #ffffff !important;
+    color: #000000 !important;
 }
 
 button{
@@ -350,6 +378,7 @@ button{
     <img src="logo.png" class="logo">
     <div class="guild">TK义</div>
     <div class="subguild">DISHONOR / EXTINCTION / EXODUS</div>
+    <button onclick="loginAdmin()" style="margin-top:10px;">Admin Login</button>
 </div>
 
 <h1>BOSS RESPAWN TIMER</h1>
@@ -365,6 +394,32 @@ button{
 <script>
 // ===== GlOBAL STORAGE =====
 let bossData = {};
+let isAdmin = false;
+const ADMIN_PASSWORD = "1234"; // change this
+
+// 🔔 NOTIFICATION SYSTEM
+let notifiedBosses = {};
+
+function requestNotificationPermission(){
+    if("Notification" in window){
+        if(Notification.permission === "default"){
+            Notification.requestPermission();
+        }
+    }
+}
+
+function sendNotification(title, body){
+    if(Notification.permission === "granted"){
+        new Notification(title, {
+            body: body,
+            icon: "logo.png"
+        });
+    }
+}
+
+// call once when page loads
+requestNotificationPermission();
+
 
 // ===== DATA =====
 const dynamicBosses = [
@@ -434,6 +489,41 @@ function formatTODDisplay(tod){
 
 }
 
+
+function sendNotification(title, body){
+    if(Notification.permission === "granted"){
+        new Notification(title, {
+            body: body,
+            icon: "logo.png"
+        });
+    }
+}
+
+
+
+function loginAdmin(){
+    let pass = prompt("Enter admin password:");
+
+    if(pass === ADMIN_PASSWORD){
+        isAdmin = true;
+        alert("Admin mode enabled");
+
+        // ✅ CLEAR UI
+        document.getElementById("dynamic").innerHTML = "";
+        document.getElementById("fixed").innerHTML = "";
+        document.getElementById("kransia").innerHTML = "";
+
+        // ✅ REBUILD with admin enabled
+        build("DYNAMIC BOSSES", dynamicBosses.map(b=>({...b,type:"dyn"})), dynamic, true);
+        build("FIXED TIMER", fixedBosses.map(([n,t])=>({name:n,times:t,type:"fix"})), fixed);
+        build("KRANSIA", kransiaBosses.map(([n,t])=>({name:n,times:t,type:"fix"})), kransia);
+
+        update();
+    }else{
+        alert("Wrong password");
+    }
+}
+
 // ===== CALC =====
 function nextInterval(tod, h){
     if(!tod) return null;
@@ -482,18 +572,18 @@ function nextSchedule(times){
 
     for (let t of allTimes) {
 
-        let diff = now - t;
+    let diff = now - t;
 
-        // ✅ ALIVE only within 5 minutes after spawn
-        if (diff >= 0 && diff <= aliveWindow) {
-            return t;
-        }
-
-        // ✅ FUTURE spawn
-        if (t > now) {
-            return t;
-        }
+    // ✅ STAY on current spawn while ALIVE
+    if (diff >= 0 && diff <= aliveWindow) {
+        return t;
     }
+
+    // ❗ DO NOT jump immediately if just passed
+    if (diff < 0) {
+        return t;
+    }
+}
 
     // ✅ ALL PASSED → next week
     let nextWeek = new Date(allTimes[0]);
@@ -541,12 +631,14 @@ function build(title,data,container,isDynamic=false){
         <div class="respawn" id="r_${b.name}">--</div>
         <div class="cd" id="c_${b.name}">--</div>
         <div class="tod">
-            ${isDynamic ? `<input type="datetime-local"
+            ${isDynamic && isAdmin ? `<input type="datetime-local"
     id="tod_${b.name}"
     value="${loadTOD(b.name)}"
     onchange="saveTOD('${b.name}',this.value)">` : "--"}
         </div>
-        ${isDynamic ? `<button onclick="setNow('${b.name}')">Now</button>` : ""}
+       ${isDynamic ? `
+    <button onclick="setNow('${b.name}')">Killed Now</button>
+` : ""}
         `;
 
         container.appendChild(row);
@@ -571,7 +663,6 @@ function setNow(name){
 
     saveTOD(name, value);
 }
-
 
 
 // ===== UPDATE =====
@@ -604,24 +695,70 @@ if(n){
     row.classList.remove("alive","today","soon","next");
 
     let diff=n?(n-new Date())/1000:null;
-    let status="SET";
+    // 🔔 5 MINUTES WARNING
+if(n){
+    let minutesLeft = diff / 60;
 
-    if(n){
-    let aliveWindow = 300; // 5 minutes
+    if(minutesLeft <= 5 && minutesLeft > 4.5){
+        if(!notifiedBosses[b.name]){
+            sendNotification(
+                "Boss Incoming!",
+                b.name + " spawning in less than 5 minutes!"
+            );
+            notifiedBosses[b.name] = true;
+        }
+    }
 
+    // reset so it can notify again next cycle
+    if(minutesLeft > 10){
+        notifiedBosses[b.name] = false;
+    }
+}
+
+    let status = "SET";
+
+if(n){
+    let aliveWindow = 1800; // 30 min AFTER spawn
+
+    // 🔥 PRIORITY 1: ALIVE
     if(diff <= 0 && diff >= -aliveWindow){
         status = "ALIVE";
         row.classList.add("alive");
+
+        todayList.push({
+            name: b.name,
+            time: n,
+            status: status,
+            diff: diff
+        });
     }
+
+    // 🔥 PRIORITY 2: SOON (≤5 min BEFORE)
     else if(diff > 0 && diff <= 300){
         status = "SOON";
         row.classList.add("soon");
+
+        todayList.push({
+            name: b.name,
+            time: n,
+            status: status,
+            diff: diff
+        });
     }
+
+    // 🔥 PRIORITY 3: TODAY (normal today bosses)
     else if(n.getDay() === today){
         status = "TODAY";
         row.classList.add("today");
-        todayList.push({name:b.name,time:n});
+
+        todayList.push({
+            name: b.name,
+            time: n,
+            status: status,
+            diff: diff
+        });
     }
+
     else{
         status = "WAIT";
     }
@@ -687,7 +824,11 @@ todayList.forEach(b=>{
     box.innerHTML+=`
     <div class="today-row">
         <div class="name">${b.name}</div>
-        <div class="status today">TODAY</div>
+
+        <div class="status ${b.status.toLowerCase()} ${b.status === "SOON" ? "blink" : ""}">
+            ${b.status}
+        </div>
+
         <div>${format(b.time)}</div>
         <div>${cd(b.time)}</div>
         <div>${formatTODDisplay(loadTOD(b.name))}</div>
