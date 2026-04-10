@@ -396,6 +396,8 @@ button{
     <div class="guild">TK义</div>
     <div class="subguild">DISHONOR / EXTINCTION / EXODUS</div>
     <button onclick="loginAdmin()" style="margin-top:10px;">Admin Login</button>
+    <div id="lastEditor" style="margin-top:8px; font-size:12px; color:#ccc;">
+    Last edit: --
 </div>
 
 <h1>BOSS RESPAWN TIMER</h1>
@@ -416,6 +418,7 @@ button{
 let bossData = {};
 let bossLogs = {};
 let isAdmin = false;
+let lastGlobalLog = null;
 const ADMIN_PASSWORD = "1234"; // change this
 let audioCtx = null;
 
@@ -1075,19 +1078,50 @@ db.ref("bosses").on("value", snapshot => {
 
 // ✅ LOGS LISTENER (SEPARATE — NOT INSIDE BOSSES)
 db.ref("logs").on("value", snap => {
+
     bossLogs = {};
+    lastGlobalLog = null;
 
     snap.forEach(child => {
         let data = child.val();
 
-        // 🔥 keep ONLY latest log per boss
+        // ✅ per boss latest
         if(!bossLogs[data.boss] || new Date(data.time) > new Date(bossLogs[data.boss].time)){
             bossLogs[data.boss] = data;
         }
+
+        // ✅ global latest
+        if(!lastGlobalLog || new Date(data.time) > new Date(lastGlobalLog.time)){
+            lastGlobalLog = data;
+        }
     });
 
-    update(); // refresh UI with logs
+    updateLastEditor(); // 🔥 NEW
+    update();
 });
+
+
+function updateLastEditor(){
+
+    let el = document.getElementById("lastEditor");
+    if(!el) return;
+
+    if(lastGlobalLog){
+
+        let time = new Date(lastGlobalLog.time).toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+
+        el.innerHTML = `
+            Last edit: 
+            <span style="color:#00ff9c;">${lastGlobalLog.editedBy}</span>
+            • ${time}
+        `;
+    }else{
+        el.innerText = "Last edit: --";
+    }
+}
 
 
 </script>
