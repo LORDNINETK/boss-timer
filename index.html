@@ -134,7 +134,7 @@ body::before{
     content:"";
     position:fixed;
     inset:0;
-    background:rgba(0,0,0,0.3);
+    background:rgba(0,0,0,0.2);
     z-index:0;
 }
 
@@ -414,6 +414,7 @@ button{
 
 // ===== GlOBAL STORAGE =====
 let bossData = {};
+let bossLogs = {};
 let isAdmin = false;
 const ADMIN_PASSWORD = "1234"; // change this
 let audioCtx = null;
@@ -483,7 +484,23 @@ const DAY_MAP = {Sunday:0,Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5,Sat
 
 // ===== STORAGE =====
 function saveTOD(name, value){
+
+    if(!currentUser){
+        alert("Login first!");
+        return;
+    }
+
+    // SAVE TOD
     db.ref("bosses/" + name).set(value);
+
+    // 🔥 SAVE LOG
+    db.ref("logs").push({
+        boss: name,
+        tod: value,
+        editedBy: currentUser,
+        role: userRole,
+        time: new Date().toISOString()
+    });
 }
 
 function loadTOD(name){
@@ -542,27 +559,41 @@ function playBeep(times = 3){
 }
 
 
+let currentUser = null;
+let userRole = "viewer";
+
 function loginAdmin(){
-    let pass = prompt("Enter admin password:");
+    let name = prompt("Enter your name:");
+    let pass = prompt("Enter password:");
 
-    if(pass === ADMIN_PASSWORD){
-        isAdmin = true;
-        alert("Admin mode enabled");
+    db.ref("users/" + name).once("value").then(snap => {
+        let user = snap.val();
 
-        // ✅ CLEAR UI
-        document.getElementById("dynamic").innerHTML = "";
-        document.getElementById("fixed").innerHTML = "";
-        document.getElementById("kransia").innerHTML = "";
+        if(user && user.password === pass){
 
-        // ✅ REBUILD with admin enabled
-        build("DYNAMIC BOSSES", dynamicBosses.map(b=>({...b,type:"dyn"})), dynamic, true);
-        build("FIXED TIMER", fixedBosses.map(([n,t])=>({name:n,times:t,type:"fix"})), fixed);
-        build("KRANSIA", kransiaBosses.map(([n,t])=>({name:n,times:t,type:"fix"})), kransia);
+            currentUser = name;
+            userRole = user.role;
 
-        update();
-    }else{
-        alert("Wrong password");
-    }
+            alert("Welcome " + name + " (" + userRole + ")");
+
+            // 🔥 allow edit if admin OR elite
+            isAdmin = (userRole === "admin" || userRole === "elite");
+
+            // 🔁 rebuild UI
+            document.getElementById("dynamic").innerHTML = "";
+            document.getElementById("fixed").innerHTML = "";
+            document.getElementById("kransia").innerHTML = "";
+
+            build("DYNAMIC BOSSES", dynamicBosses.map(b=>({...b,type:"dyn"})), dynamic, true);
+            build("FIXED TIMER", fixedBosses.map(([n,t])=>({name:n,times:t,type:"fix"})), fixed);
+            build("KRANSIA", kransiaBosses.map(([n,t])=>({name:n,times:t,type:"fix"})), kransia);
+
+            update();
+
+        }else{
+            alert("Invalid login");
+        }
+    });
 }
 
 // ===== CALC =====
@@ -831,11 +862,32 @@ if(b.type === "dyn" && (status === "TODAY" || status === "SOON" || status === "A
 
 
     respawnEl.innerHTML = `
-        <div>${respawnText}</div>
-        <div style="font-size:11px; color:#00e5ff; opacity:0.8;">
-            TOD: ${tod}
-        </div>
-    `;
+    <div>${respawnText}</div>
+    <div style="font-size:11px; color:#00e5ff; opacity:0.8;">
+        TOD: ${tod}
+    </div>
+    <div id="log_${b.name}" style="font-size:10px; color:#aaa; opacity:0.7;">
+        loading...
+    </div>
+`;
+
+let logEl = document.getElementById("log_" + b.name);
+let log = bossLogs[b.name];
+
+if(logEl){
+    if(log){
+        let time = new Date(log.time).toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+
+        logEl.innerText = `by ${log.editedBy} • ${time}`;
+    }else{
+        logEl.innerText = "--";
+    }
+}
+
+
 }else{
     respawnEl.innerText = respawnText;
 }
@@ -855,6 +907,7 @@ if(allBosses.length > 0){
         nextRow.classList.add("next");
     }
 }
+
 
 // ===== TODAY PANEL =====
 let box=document.getElementById("todayBox");
@@ -999,21 +1052,39 @@ navigator.serviceWorker.register('/boss-timer/firebase-messaging-sw.js')
 .catch(err => console.log("❌ SW REG ERROR:", err));
 
 
-// ✅ SINGLE CLEAN LISTENER
+
+// ✅ BOSSES LISTENER (ONLY BOSSES HERE)
 db.ref("bosses").on("value", snapshot => {
     bossData = snapshot.val() || {};
 
     Object.keys(bossData).forEach(name => {
-    const input = document.getElementById("tod_" + name);
-    if(input){
-        input.value = bossData[name];
-    }
+        const input = document.getElementById("tod_" + name);
+        if(input){
+            input.value = bossData[name];
+        }
+    });
+
+    update(); // refresh UI
 });
 
 
+// ✅ LOGS LISTENER (SEPARATE — NOT INSIDE BOSSES)
+db.ref("logs").on("value", snap => {
+    bossLogs = {};
 
-    update(); // instant refresh
+    snap.forEach(child => {
+        let data = child.val();
+
+        // 🔥 keep ONLY latest log per boss
+        if(!bossLogs[data.boss] || new Date(data.time) > new Date(bossLogs[data.boss].time)){
+            bossLogs[data.boss] = data;
+        }
+    });
+
+    update(); // refresh UI with logs
 });
+
+
 </script>
 </body>
 </html>
