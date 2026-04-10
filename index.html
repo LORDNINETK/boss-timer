@@ -381,6 +381,43 @@ button{
         grid-column:1 / span 2;
         width:100%;
     }
+
+    #soundUI{
+  position:fixed;
+  top:15px;
+  right:15px;
+  z-index:9999;
+  display:flex;
+  gap:6px;
+  align-items:center;
+  background:rgba(0,0,0,0.6);
+  padding:6px 10px;
+  border-radius:10px;
+  backdrop-filter:blur(6px);
+}
+
+#soundToggle{
+  border:none;
+  padding:6px 10px;
+  border-radius:8px;
+  cursor:pointer;
+  font-size:12px;
+  background:#444;
+  color:#fff;
+}
+
+#soundToggle.on{
+  background:#00c853;
+}
+
+#soundToggle.off{
+  background:#b71c1c;
+}
+
+#volumeSlider{
+  width:70px;
+}
+    
 }
 
 </style>
@@ -398,6 +435,11 @@ button{
     <button onclick="loginAdmin()" style="margin-top:10px;">Admin Login</button>
     <div id="lastEditor" style="margin-top:8px; font-size:12px; color:#ccc;">
     Last edit: --
+</div>
+
+<div id="soundUI">
+  <button id="soundToggle" class="off">🔇 Sound OFF</button>
+  <input id="volumeSlider" type="range" min="0" max="1" step="0.1" value="1" />
 </div>
 
 <h1>BOSS RESPAWN TIMER</h1>
@@ -421,6 +463,8 @@ let isAdmin = false;
 let lastGlobalLog = null;
 const ADMIN_PASSWORD = "1234"; // change this
 let audioCtx = null;
+let soundEnabled = false;
+let volumeLevel = 1;
 
 
 // 🔔 NOTIFICATION SYSTEM
@@ -461,6 +505,10 @@ const dynamicBosses = [
 { name:"Secreta", h:62 },{ name:"Ordo", h:62 },
 { name:"Asta", h:62 },{ name:"Supore", h:62 }
 ];
+
+dynamicBosses.forEach(b => {
+    b.alerted = false;
+});
 
 const fixedBosses = [
 ["Neutro",[["Tuesday","19:00"],["Thursday","11:30"]]],
@@ -532,33 +580,25 @@ function formatTODDisplay(tod){
 }
 
 function playBeep(times = 3){
+    if(!audioCtx) return;
 
-    if(!audioCtx) return; // ❗ if not unlocked yet
+    for(let i = 0; i < times; i++){
+        setTimeout(() => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
 
-    let count = 0;
+            osc.type = "square"; // sharper/louder
+            osc.frequency.value = 1000;
 
-    function beep(){
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
+            gain.gain.value = 1; // 🔊 volume (0.5–1 = loud)
 
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
 
-        osc.frequency.value = 1200; // 🔥 nicer sound
-        osc.type = "square"; // 🔥 game-like beep
-
-        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.12);
-
-        count++;
-        if(count < times){
-            setTimeout(beep, 220);
-        }
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15); // short beep
+        }, i * 200); // spacing between beeps
     }
-
-    beep();
 }
 
 
@@ -748,14 +788,19 @@ function setNow(name){
 function update(){
 
 let allBosses = [];
-let todayList=[];
-let today=new Date().getDay();
+let todayList = [];
+let today = new Date().getDay();
 
-[...dynamicBosses.map(b=>({...b,type:"dyn"})),
- ...fixedBosses.map(([n,t])=>({name:n,times:t,type:"fix"})),
- ...kransiaBosses.map(([n,t])=>({name:n,times:t,type:"fix"}))]
+[
+    ...dynamicBosses.map(b => ({
+    ...b,
+    type: "dyn"
+})),
+    ...fixedBosses.map(([n,t]) => ({ name:n, times:t, type:"fix" })),
+    ...kransiaBosses.map(([n,t]) => ({ name:n, times:t, type:"fix" }))
+]
 
-.forEach(b=>{
+.forEach(b => {
 
     let n;
 
@@ -775,31 +820,7 @@ if(n){
 
 
     let diff=n?(n-new Date())/1000:null;
-    // 🔔 5 MINUTES WARNING
-if(n){
-    let minutesLeft = diff / 60;
-
-    // 🔔 PUSH TO ALL USERS
-    if(minutesLeft <= 5 && minutesLeft > 0){
-
-        if(!notifiedBosses[b.name]){
-
-            sendPushToAll(b.name + " spawning soon!");
-
-            notifiedBosses[b.name] = true;
-        }
-    }
-
-    // reset
-    if(minutesLeft > 10){
-        notifiedBosses[b.name] = false;
-    }
     
-    if(minutesLeft > 10){
-    notifiedBosses[b.name + "_alive"] = false;
-   } 
-}
-
 
 
 if(n){
@@ -900,6 +921,24 @@ if(logEl){
     respawnEl.innerText = respawnText;
 }
 
+// 🔔 BEEP LOGIC (FIXED & RELIABLE)
+if(n){
+
+    let diffMs = n - new Date();
+    let minutesLeft = diffMs / 60000;
+
+    // 🔊 trigger between 5:00 minutes
+    if(minutesLeft <= 5 && minutesLeft > 0 && !b.alerted){
+        playBeep(3);
+        b.alerted = true;
+    }
+
+    // reset when far again
+    if(minutesLeft > 10){
+        b.alerted = false;
+    }
+}
+// existing line
 document.getElementById("c_"+b.name).innerText = cd(n);
 
 });
@@ -986,16 +1025,60 @@ setInterval(update,1000);
 
 // 🔊 ENABLE AUDIO AFTER USER CLICK
 document.addEventListener("click", () => {
-    if (!audioCtx) {
+    if(!audioCtx){
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    audioCtx.resume();
+}, { once: true });
+
+
+
+// INIT UI
+const toggleBtn = document.getElementById("soundToggle");
+const volumeSlider = document.getElementById("volumeSlider");
+
+// 🔘 Toggle button
+toggleBtn.addEventListener("click", () => {
+    if(!audioCtx){
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
 
-    if (audioCtx.state === "suspended") {
-        audioCtx.resume();
-    }
+    audioCtx.resume();
 
-    console.log("🔊 Audio unlocked");
-}, { once: true });
+    soundEnabled = !soundEnabled;
+
+    toggleBtn.textContent = soundEnabled ? "🔊 Sound ON" : "🔇 Sound OFF";
+    toggleBtn.className = soundEnabled ? "on" : "off";
+});
+
+// 🎚 Volume control
+volumeSlider.addEventListener("input", () => {
+    volumeLevel = parseFloat(volumeSlider.value);
+});
+
+// 🔊 BEEP FUNCTION (UPDATE YOUR EXISTING ONE)
+function playBeep(times = 1){
+    if(!audioCtx || !soundEnabled) return;
+
+    for(let i = 0; i < times; i++){
+        setTimeout(() => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.frequency.value = 1200;
+            gain.gain.value = volumeLevel;
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15);
+        }, i * 200);
+    }
+}
+
+
+
 
 </script>
 
