@@ -562,13 +562,15 @@ function saveTOD(name, value){
         return;
     }
 
-    // SAVE TOD
-    db.ref("bosses/" + name).set(value);
+    let local = new Date(value);
 
-    // 🔥 SAVE LOG
+    let utc = new Date(local.getTime() - local.getTimezoneOffset()*60000).toISOString();
+
+    db.ref("bosses/" + name).set(utc);
+
     db.ref("logs").push({
         boss: name,
-        tod: value,
+        tod: utc,
         editedBy: currentUser,
         role: userRole,
         time: new Date().toISOString()
@@ -601,6 +603,17 @@ function formatTODDisplay(tod){
     return `${date} • ${time}`;
 
 }
+
+function formatForInput(tod){
+    if(!tod) return "";
+
+    let d = new Date(tod);
+    if(isNaN(d)) return "";
+
+    let local = new Date(d.getTime() - d.getTimezoneOffset()*60000);
+    return local.toISOString().slice(0,16);
+}
+
 
 function playBeep(times = 3){
     if(!audioCtx) return;
@@ -776,7 +789,7 @@ function build(title,data,container,isDynamic=false){
         <div class="tod">
             ${isDynamic && isAdmin ? `<input type="datetime-local"
     id="tod_${b.name}"
-    value="${loadTOD(b.name)}"
+    value="${formatForInput(loadTOD(b.name))}"
     onchange="saveTOD('${b.name}',this.value)">` : "--"}
         </div>
        ${isDynamic && isAdmin ? `
@@ -1193,7 +1206,7 @@ db.ref("bosses").on("value", snapshot => {
     Object.keys(bossData).forEach(name => {
         const input = document.getElementById("tod_" + name);
         if(input){
-            input.value = bossData[name];
+            input.value = formatForInput(bossData[name]);
         }
     });
 
