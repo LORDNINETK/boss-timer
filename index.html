@@ -437,6 +437,23 @@ button{
     Last edit: --
 </div>
 
+<!-- 🌍 TIMEZONE SELECT (ADD HERE) -->
+<div style="margin-top:10px;">
+    <select id="timezoneSelect">
+        <option value="Asia/Manila">🇵🇭 Philippines</option>
+        <option value="Pacific/Guam">🇬🇺 Guam</option>
+        <option value="Asia/Kuala_Lumpur">🇲🇾 Malaysia</option>
+        <option value="Asia/Seoul">🇰🇷 South Korea</option>
+        <option value="Asia/Bangkok">🇹🇭 Thailand</option>
+        <option value="Asia/Tokyo">🇯🇵 Japan</option>
+        <option value="Asia/Singapore">🇸🇬 Singapore</option>
+        <option value="America/New_York">🇺🇸 New York</option>
+        <option value="Europe/London">🇬🇧 London</option>
+    </select>
+</div>
+
+</div>
+
 <div id="soundUI">
   <button id="soundToggle" class="off">🔇 Sound OFF</button>
   <input id="volumeSlider" type="range" min="0" max="1" step="0.1" value="1" />
@@ -465,6 +482,9 @@ const ADMIN_PASSWORD = "1234"; // change this
 let audioCtx = null;
 let soundEnabled = false;
 let volumeLevel = 1;
+let selectedTZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+
 
 
 // 🔔 NOTIFICATION SYSTEM
@@ -568,12 +588,14 @@ function formatTODDisplay(tod){
 
     let date = d.toLocaleDateString("en-US", {
         month: "short",
-        day: "numeric"
+        day: "numeric",
+        timeZone: selectedTZ
     });
 
     let time = d.toLocaleTimeString("en-US", {
         hour: "2-digit",
-        minute: "2-digit"
+        minute: "2-digit",
+        timeZone: selectedTZ
     });
 
     return `${date} • ${time}`;
@@ -721,7 +743,8 @@ function format(d){
         month:"short",
         day:"numeric",
         hour:"2-digit",
-        minute:"2-digit"
+        minute:"2-digit",
+        timeZone: selectedTZ
     });
 }
 
@@ -957,6 +980,8 @@ if(allBosses.length > 0){
 }
 
 
+
+
 // ===== TODAY PANEL =====
 let box=document.getElementById("todayBox");
 
@@ -1078,6 +1103,22 @@ function playBeep(times = 1){
     }
 }
 
+
+// ✅ TIMEZONE INIT (RUN ONCE ONLY)
+window.addEventListener("DOMContentLoaded", () => {
+
+    const tzSelect = document.getElementById("timezoneSelect");
+
+    if(tzSelect){
+        tzSelect.value = selectedTZ;
+
+        tzSelect.addEventListener("change", (e)=>{
+            selectedTZ = e.target.value;
+            update();
+        });
+    }
+
+});
 
 
 
