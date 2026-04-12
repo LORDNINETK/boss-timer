@@ -444,13 +444,10 @@ button{
     <select id="timezoneSelect">
     <option value="Asia/Manila">🇵🇭 Philippines (UTC +8)</option>
     <option value="Pacific/Guam">🇬🇺 Guam (UTC +10)</option>
-    <option value="Asia/Kuala_Lumpur">🇲🇾 Malaysia (UTC +8)</option>
     <option value="Asia/Seoul">🇰🇷 South Korea (UTC +9)</option>
     <option value="Asia/Bangkok">🇹🇭 Thailand (UTC +7)</option>
     <option value="Asia/Tokyo">🇯🇵 Japan (UTC +9)</option>
     <option value="Asia/Singapore">🇸🇬 Singapore (UTC +8)</option>
-    <option value="America/New_York">🇺🇸 New York (UTC -5 / -4 DST)</option>
-    <option value="Europe/London">🇬🇧 London (UTC 0 / +1 DST)</option>
 </select>
 </div>
 
@@ -686,7 +683,7 @@ function loginAdmin(){
 
             build("DYNAMIC BOSSES", dynamicBosses.map(b=>({...b,type:"dyn"})), dynamic, true);
             build("FIXED TIMER", fixedBosses.map(([n,t])=>({name:n,times:t,type:"fix"})), fixed);
-            build("KRANSIA", kransiaBosses.map(([n,t])=>({name:n,times:t,type:"fix"})), kransia);
+            build("KRANSIA BOSSES", kransiaBosses.map(([n,t])=>({name:n,times:t,type:"fix"})), kransia);
 
             update();
 
@@ -818,7 +815,7 @@ function build(title,data,container,isDynamic=false){
 
 build("DYNAMIC BOSSES",dynamicBosses.map(b=>({...b,type:"dyn"})),dynamic,true);
 build("FIXED TIMER",fixedBosses.map(([n,t])=>({name:n,times:t,type:"fix"})),fixed);
-build("KRANSIA",kransiaBosses.map(([n,t])=>({name:n,times:t,type:"fix"})),kransia);
+build("KRANSIA BOSSES",kransiaBosses.map(([n,t])=>({name:n,times:t,type:"fix"})),kransia);
 
 // ===== NOW BUTTON =====
 function setNow(name){
@@ -1023,7 +1020,7 @@ box.innerHTML=`
 </div>
 
 <div class="today-header">
-<div>BOSS</div><div>STATUS</div><div>RESPAWN</div><div>COUNTDOWN</div><div>TOD</div><div></div>
+<div>BOSS</div><div>STATUS</div><div>RESPAWN</div><div>COUNTDOWN</div><div>TIME OF DEATH</div><div></div>
 </div>`;
 
 todayList.sort((a,b)=>a.time-b.time);
