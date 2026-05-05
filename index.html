@@ -995,6 +995,15 @@ button{
 }
 
 </style>
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(async function(OneSignal) {
+    await OneSignal.init({
+      appId: "2e75e842-a1b1-4da1-9410-3a17e4324fdf",
+    });
+  });
+</script>
 </head>
 
 <body>
