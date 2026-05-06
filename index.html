@@ -87,9 +87,7 @@
 }
 
 /* 🔴 BLINK ONLY WHEN .blink IS ALSO PRESENT */
-.row.soon.blink::after{
-    animation:glowRed 1s infinite ease-in-out;
-}
+.row.soon.blink::after{ }
 
 /* ✅ ADD THIS RIGHT HERE 👇 */
 .today-row{
@@ -112,9 +110,7 @@
     opacity:1;
 }
 
-.today-row.soon.blink::after{
-    animation:glowRed 1s infinite ease-in-out;
-}
+.today-row.soon.blink::after{ }
 /* ===== ANIMATIONS ===== */
 @keyframes glowGreen{
     0%{opacity:0.2;}
@@ -565,9 +561,7 @@ button{
 .tomorrow{ border-left-color:#00b0ff; }
 
 /* BLINK */
-.blink{
-    animation:blink 1s infinite;
-}
+.blink{ animation:none !important; }
 @keyframes blink{
     50%{opacity:0.4;}
 }
@@ -1078,6 +1072,22 @@ button{
   box-shadow:0 0 12px rgba(0,255,179,0.18);
 }
 
+
+.row:focus-within,
+.today-row:focus-within,
+.overdue-card:focus-within{
+    opacity:1 !important;
+    animation:none !important;
+}
+
+.respawn input:focus,
+.tod input:focus{
+    background:#ffffff !important;
+    color:#050505 !important;
+    border-color:#ffd76a !important;
+    box-shadow:0 0 0 2px rgba(255,215,106,0.35), 0 0 14px rgba(255,215,106,0.45) !important;
+    outline:none !important;
+}
 </style>
 <script>
   window.bossNotifyClick = function(){
@@ -2261,7 +2271,7 @@ if(n){
         }else{
         status = "BOSS RESPAWN NOT YET CONFIRMED DEAD";
         statusKey = "confirming";
-        row.classList.add("soon","blink");
+        row.classList.add("soon");
         // Dynamic bosses move immediately. Fixed/Kransia bosses move here
         // after a 5-minute grace period until admin/elite confirms them.
         showToday = false;
@@ -2284,7 +2294,7 @@ if(n){
     else if(diff > 0 && diff <= 300){
         status = "SOON";
         statusKey = "soon";
-        row.classList.add("soon","blink");
+        row.classList.add("soon");
         showToday = true;
     }
     else if(isSameDay(n, getNowInTZ())){
@@ -2438,7 +2448,7 @@ todayList.sort((a,b)=>a.time-b.time);
 
 todayList.forEach(b=>{
     let rowStatusClass = b.statusKey || b.status.toLowerCase();
-    let shouldBlink = rowStatusClass === "soon" || rowStatusClass === "confirming";
+    let shouldBlink = false;
 
     box.innerHTML+=`
     <div class="today-row ${rowStatusClass === "confirming" ? "soon" : rowStatusClass} ${shouldBlink ? "blink" : ""}" data-boss-name="${b.name}">
@@ -2488,7 +2498,7 @@ function renderOverduePanel(list){
         }
 
         return `
-        <div class="overdue-card blink" data-boss-name="${b.name}">
+        <div class="overdue-card" data-boss-name="${b.name}">
             <span class="name">${b.displayName}</span>
             <div class="overdue-meta">
                 Spawn: ${b.spawnTime}<br>
