@@ -1088,6 +1088,32 @@ button{
     box-shadow:0 0 0 2px rgba(255,215,106,0.35), 0 0 14px rgba(255,215,106,0.45) !important;
     outline:none !important;
 }
+
+/* Warning pulse: only the left side border glows, content stays stable. */
+.row.soon,
+.today-row.soon,
+.overdue-card{
+    border-left-color:#ff4d4d !important;
+    box-shadow:inset 4px 0 0 #ff4d4d, 0 0 14px rgba(255,77,77,0.28);
+    animation:leftRedGlow 1.15s infinite ease-in-out !important;
+}
+
+.row.soon::after,
+.today-row.soon::after{
+    animation:none !important;
+    opacity:1 !important;
+}
+
+.row.soon:focus-within,
+.today-row.soon:focus-within,
+.overdue-card:focus-within{
+    animation:leftRedGlow 1.15s infinite ease-in-out !important;
+}
+
+@keyframes leftRedGlow{
+    0%,100%{ box-shadow:inset 4px 0 0 #8f2323, 0 0 8px rgba(255,77,77,0.18); }
+    50%{ box-shadow:inset 4px 0 0 #ff4d4d, 0 0 20px rgba(255,77,77,0.55); }
+}
 </style>
 <script>
   window.bossNotifyClick = function(){
