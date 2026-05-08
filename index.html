@@ -1143,8 +1143,8 @@ button{
       try{
         await OneSignal.init({
           appId: "2e75e842-a1b1-4da1-9410-3a17e4324fdf",
-          serviceWorkerPath: "boss-timer/onesignal/OneSignalSDKWorker.js",
-          serviceWorkerUpdaterPath: "boss-timer/onesignal/OneSignalSDKUpdaterWorker.js",
+          serviceWorkerPath: "/boss-timer/onesignal/OneSignalSDKWorker.js",
+          serviceWorkerUpdaterPath: "/boss-timer/onesignal/OneSignalSDKUpdaterWorker.js",
           serviceWorkerParam: { scope: "/boss-timer/onesignal/" },
           autoResubscribe: true,
         });
@@ -2341,19 +2341,9 @@ if(n){
     let hoursLeft = diff / 3600;
 
     if(diff <= 0){
-        let fixedGraceActive = b.type !== "dyn" && diff > -300;
-
-        if(fixedGraceActive){
-            status = "TODAY";
-            statusKey = "today";
-            row.classList.add("today");
-            showToday = isSameDay(n, getNowInTZ());
-        }else{
         status = "BOSS RESPAWN NOT YET CONFIRMED DEAD";
         statusKey = "confirming";
         row.classList.add("soon");
-        // Dynamic bosses move immediately. Fixed/Kransia bosses move here
-        // after a 5-minute grace period until admin/elite confirms them.
         showToday = false;
         overdueList.push({
             name: b.name,
@@ -2368,7 +2358,6 @@ if(n){
         if(!notifiedBosses[b.name + "_confirming"]){
             playBeep(3);
             notifiedBosses[b.name + "_confirming"] = true;
-        }
         }
     }
     else if(diff > 0 && diff <= 300){
@@ -2906,7 +2895,7 @@ async function enableBossNotifications(){
         }, 1800);
     }catch(e){
         console.error("OneSignal setup error", e);
-        alert("OneSignal could not finish loading.\n\nIf you are inside Messenger/Facebook browser, open the site in Chrome first.\n\nAlso check this file opens:\nhttps://lordninetk.github.io/boss-timer/OneSignalSDKWorker.js\n\nError: " + (e && e.message ? e.message : e));
+        alert("OneSignal could not finish loading.\n\nIf you are inside Messenger/Facebook browser, open the site in Chrome first.\n\nAlso check this file opens:\nhttps://lordninetk.github.io/boss-timer/onesignal/OneSignalSDKWorker.js\n\nError: " + (e && e.message ? e.message : e));
     }
 }
 
