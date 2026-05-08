@@ -2071,13 +2071,12 @@ function nextSchedule(times, bossName){
     // sort ascending
     allTimes.sort((a, b) => a - b);
 
-    let overdue = allTimes
+    let latestPast = allTimes
         .filter(t => t <= now)
-        .sort((a,b) => b - a)
-        .find(t => !confirmedBosses[getConfirmKey(bossName, t)]);
+        .sort((a,b) => b - a)[0];
 
-    if(overdue){
-        return overdue;
+    if(latestPast && !confirmedBosses[getConfirmKey(bossName, latestPast)]){
+        return latestPast;
     }
 
     for (let t of allTimes) {
@@ -2090,8 +2089,8 @@ function nextSchedule(times, bossName){
     }
 }
 
-    // ✅ ALL PASSED → next week
-    return addDaysInTZ(allTimes[0], 7, SCHEDULE_TZ);
+    // ✅ ALL PASSED → next week after the latest scheduled time
+    return addDaysInTZ(allTimes[allTimes.length - 1], 7, SCHEDULE_TZ);
 }
 
 
@@ -2155,6 +2154,11 @@ function applyBossSearch(){
     bossSearchTerm = input ? input.value.trim().toLowerCase() : "";
 
     document.querySelectorAll("[data-boss-name]").forEach(el => {
+        if(el.dataset.idleOnly === "true"){
+            el.style.display = "none";
+            return;
+        }
+
         let name = (el.dataset.bossName || "").toLowerCase();
         el.style.display = bossMatchesSearch(name) ? "" : "none";
     });
@@ -2219,18 +2223,28 @@ function setNow(name){
         return;
     }
 
-    const ref = db.ref("bosses/" + name);
+    const nowUtc = Date.now();
+    bossData[name] = nowUtc;
 
-    // 🔥 use Firebase server time (accurate for everyone)
-    ref.set(firebase.database.ServerValue.TIMESTAMP);
+    const input = document.getElementById("tod_" + name);
+    if(input){
+        input.value = formatForInput(nowUtc);
+    }
 
-    // 🔥 log using server time
-    db.ref("logs").push({
-        boss: name,
-        tod: firebase.database.ServerValue.TIMESTAMP,
-        editedBy: currentUser,
-        role: userRole,
-        time: firebase.database.ServerValue.TIMESTAMP
+    update();
+
+    db.ref("bosses/" + name).set(nowUtc).then(() => {
+        return db.ref("logs").push({
+            boss: name,
+            tod: nowUtc,
+            editedBy: currentUser,
+            role: userRole,
+            action: "killed now",
+            time: firebase.database.ServerValue.TIMESTAMP
+        });
+    }).catch(err => {
+        console.log("Killed Now error:", err);
+        alert("Killed Now did not save. Please check your internet/login and try again.");
     });
 }
 
@@ -2245,23 +2259,39 @@ function confirmFixedBoss(name, time){
         return;
     }
 
-    let key = getConfirmKey(name, time);
+    let confirmedTime = new Date(time).getTime();
+    let key = getConfirmKey(name, confirmedTime);
+
+    confirmedBosses[key] = {
+        boss: name,
+        time: confirmedTime,
+        confirmedBy: currentUser,
+        role: userRole,
+        confirmedAt: Date.now()
+    };
+
+    update();
 
     db.ref("confirmed/" + key).set({
         boss: name,
-        time: new Date(time).getTime(),
+        time: confirmedTime,
         confirmedBy: currentUser,
         role: userRole,
         confirmedAt: firebase.database.ServerValue.TIMESTAMP
-    });
-
-    db.ref("logs").push({
-        boss: name,
-        tod: new Date(time).getTime(),
-        editedBy: currentUser,
-        role: userRole,
-        action: "confirmed dead",
-        time: firebase.database.ServerValue.TIMESTAMP
+    }).then(() => {
+        return db.ref("logs").push({
+            boss: name,
+            tod: confirmedTime,
+            editedBy: currentUser,
+            role: userRole,
+            action: "fixed killed now",
+            time: firebase.database.ServerValue.TIMESTAMP
+        });
+    }).catch(err => {
+        console.log("Fixed Killed Now error:", err);
+        delete confirmedBosses[key];
+        update();
+        alert("Killed Now did not save. Please check your internet/login and try again.");
     });
 }
 
@@ -2300,6 +2330,7 @@ if(n){
 
     let row=document.getElementById("row_"+b.name);
     row.classList.remove("alive","today","soon","next","blink");
+    delete row.dataset.idleOnly;
 
 
     let diff = n ? (n.getTime() - getNowInTZ().getTime()) / 1000 : null;
@@ -2339,6 +2370,8 @@ if(n){
             spawnTime: formatSpawnTime(b),
             diff: diff
         });
+
+        row.dataset.idleOnly = "true";
 
         if(!notifiedBosses[b.name + "_confirming"]){
             playBeep(3);
@@ -2548,7 +2581,7 @@ function renderOverduePanel(list){
             if(b.type === "dyn"){
                 action = `<button onclick="setNow('${b.name}')">Killed Now</button>`;
             }else{
-                action = `<button onclick="confirmFixedBoss('${b.name}', ${b.time.getTime()})">Confirm Dead</button>`;
+                action = `<button onclick="confirmFixedBoss('${b.name}', ${b.time.getTime()})">Killed Now</button>`;
             }
         }
 
