@@ -2154,11 +2154,6 @@ function applyBossSearch(){
     bossSearchTerm = input ? input.value.trim().toLowerCase() : "";
 
     document.querySelectorAll("[data-boss-name]").forEach(el => {
-        if(el.dataset.idleOnly === "true"){
-            el.style.display = "none";
-            return;
-        }
-
         let name = (el.dataset.bossName || "").toLowerCase();
         el.style.display = bossMatchesSearch(name) ? "" : "none";
     });
@@ -2330,7 +2325,6 @@ if(n){
 
     let row=document.getElementById("row_"+b.name);
     row.classList.remove("alive","today","soon","next","blink");
-    delete row.dataset.idleOnly;
 
 
     let diff = n ? (n.getTime() - getNowInTZ().getTime()) / 1000 : null;
@@ -2370,8 +2364,6 @@ if(n){
             spawnTime: formatSpawnTime(b),
             diff: diff
         });
-
-        row.dataset.idleOnly = "true";
 
         if(!notifiedBosses[b.name + "_confirming"]){
             playBeep(3);
