@@ -1376,8 +1376,8 @@ const dynamicBosses = [
 { name:"Venatus", h:10 },{ name:"Viorent", h:10 },
 { name:"Ego", h:21 },{ name:"Livera", h:24 },
 { name:"Araneo", h:24 },{ name:"Undomiel", h:24 },
-{ name:"LadyDalia", h:18 },{ name:"General", h:29 },
-{ name:"Amentis", h:29 },{ name:"Baron", h:32 },
+{ name:"LadyDalia", h:18 },{ name:"GeneralAq", h:29 },
+{ name:"Amentis", h:29 },{ name:"BaronBrd", h:32 },
 { name:"Wannitas", h:48 },{ name:"Metus", h:48 },
 { name:"Duplican", h:48 },{ name:"Shuliar", h:35 },
 { name:"Gareth", h:32 },{ name:"Titore", h:37 },
@@ -1421,7 +1421,9 @@ const dynamicBossMap = {};
 const bossAliases = {
     LadyDalia: ["lady dalia","dalia","dal","lady"],
     GeneralAq: ["general aq","general aqueles","generalaqueles","general","generala","gen","aq"],
-    BaronBrd: ["baron braudmore","baronbraudmore","baron","baronbrd"],
+    General: ["general aq","general aqueles","generalaqueles","general","generala","gen","aq"],
+    BaronBrd: ["baron braudmore","baronbraudmore","baron barudmore","baronbarudmore","baron","baronbrd","braudmore","barudmore"],
+    Baron: ["baron braudmore","baronbraudmore","baron barudmore","baronbarudmore","baron","baronbrd","braudmore","barudmore"],
     Venatus: ["ven"],
     Viorent: ["vio"],
     Undomiel: ["undo","und"],
@@ -1476,7 +1478,13 @@ function resolveDynamicBoss(name){
     let matches = dynamicBosses.filter(b => {
         let full = normalizeBossText(b.name);
         let aliases = (bossAliases[b.name] || []).map(normalizeBossText);
-        return full.startsWith(key) || aliases.some(alias => alias.startsWith(key));
+        let names = [full, ...aliases].filter(Boolean);
+
+        return names.some(alias =>
+            alias === key ||
+            alias.startsWith(key) ||
+            key.startsWith(alias)
+        );
     });
 
     return matches.length === 1 ? matches[0] : null;
@@ -1595,17 +1603,19 @@ function saveDiscordRespawn(name, respawnDate){
     let boss = resolveDynamicBoss(name);
     if(!boss || !respawnDate) return false;
 
-    // Discord Sync times are Time of Death, not respawn time.
-    let todUtc = respawnDate.getTime();
+    // Discord Sync mode: pasted time is RESPAWN TIME.
+    let respawnUtc = respawnDate.getTime();
+    let todUtc = respawnUtc - (boss.h * 3600000);
 
     db.ref("bosses/" + boss.name).set(todUtc);
 
     db.ref("logs").push({
         boss: boss.name,
         tod: todUtc,
+        respawn: respawnUtc,
         editedBy: currentUser,
         role: userRole,
-        action: "discord sync tod",
+        action: "discord sync respawn time",
         time: getNowInTZ().getTime()
     });
 
@@ -1632,6 +1642,36 @@ function saveDiscordTOD(name, todDate){
     return true;
 }
 
+function saveDiscordTimeByMode(name, eventDate, uploadMode){
+    return uploadMode === "respawn"
+        ? saveDiscordRespawn(name, eventDate)
+        : saveDiscordTOD(name, eventDate);
+}
+
+function labelDiscordMode(uploadMode){
+    return uploadMode === "respawn" ? "RESPAWN TIME" : "TOD";
+}
+
+function extractDiscordBossTime(line){
+    let patterns = [
+        /^(?:@everyone\s+)?([A-Za-z ]+?)\s+will\s+respawn\s+at\s+(\d{1,2}(?::\d{2})?\s*(?:AM|PM))$/i,
+        /^([A-Za-z ]+?)\s+(?:tod|time\s+of\s+death|dead|died|killed)\s*(?:at)?\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM))$/i,
+        /^([A-Za-z ]+?)\s*(?:[,=:;\-–—]\s*|\s+)(\d{1,2}(?::\d{2})?\s*(?:AM|PM))$/i
+    ];
+
+    for(let pattern of patterns){
+        let match = line.match(pattern);
+        if(match){
+            return {
+                bossName: match[1].replace(/@everyone/i, "").replace(/^Kransia:\s*/i, "").trim(),
+                timeText: match[2].trim()
+            };
+        }
+    }
+
+    return null;
+}
+
 async function discordSync(){
     if(!currentUser){
         alert("Login first!");
@@ -1654,11 +1694,28 @@ async function discordSync(){
     }
 
     text = prompt(
-        "Paste Discord boss schedule / time-of-death text here:",
+        "Paste Discord boss schedule / time text here:",
         text || ""
     );
 
     if(!text) return;
+
+    let uploadMode = prompt(
+        "Where should Discord Sync save these pasted times?\n\nType R for RESPAWN TIME\nType T for TIME OF DEATH",
+        "R"
+    );
+
+    if(!uploadMode) return;
+    uploadMode = uploadMode.trim().toLowerCase();
+
+    if(uploadMode.startsWith("r")){
+        uploadMode = "respawn";
+    }else if(uploadMode.startsWith("t") || uploadMode.includes("death") || uploadMode === "tod"){
+        uploadMode = "tod";
+    }else{
+        alert("Invalid choice. Type R for RESPAWN TIME or T for TIME OF DEATH.");
+        return;
+    }
 
     let dayOffset = 0;
     let updated = [];
@@ -1678,60 +1735,31 @@ async function discordSync(){
             return;
         }
 
-        let respawnMatch = line.match(/^(?:@everyone\s+)?([A-Za-z ]+?)\s+will respawn at\s+(\d{1,2}(?::\d{2})?\s*(?:AM|PM))/i);
-
-        if(respawnMatch){
-            let bossName = respawnMatch[1].replace(/@everyone/i, "").trim();
-            let respawnDate = parseDiscordTimeToDate(respawnMatch[2], dayOffset);
-
-            if(saveDiscordRespawn(bossName, respawnDate)){
-                updated.push(`${bossName} TOD ${respawnMatch[2]}`);
-            }else{
-                ignored.push(line);
-            }
+        let parsed = extractDiscordBossTime(line);
+        if(!parsed){
+            ignored.push(line);
             return;
         }
 
-        let todMatch = line.match(/^([A-Za-z ]+?)\s+(?:tod|time of death|dead|died|killed)\s*(?:at)?\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM))$/i);
-        if(todMatch){
-            let bossName = todMatch[1].trim();
-            let todDate = parseDiscordTimeToDate(todMatch[2], dayOffset);
-
-            if(saveDiscordTOD(bossName, todDate)){
-                updated.push(`${bossName} TOD ${todMatch[2]}`);
-            }else{
-                ignored.push(line);
-            }
+        let eventDate = parseDiscordTimeToDate(parsed.timeText, dayOffset);
+        if(!eventDate){
+            ignored.push(line);
             return;
         }
 
-        let simpleMatch = line.match(/^([A-Za-z ]+?)\s+(\d{1,2}(?::\d{2})?\s*(?:AM|PM))$/i);
-        if(simpleMatch){
-            let bossName = simpleMatch[1].replace(/^Kransia:\s*/i, "").trim();
-            let eventDate = parseDiscordTimeToDate(simpleMatch[2], dayOffset);
-
-            let boss = resolveDynamicBoss(bossName);
-
-            if(boss){
-            if(saveDiscordRespawn(bossName, eventDate)){
-                updated.push(`${bossName} TOD ${simpleMatch[2]}`);
-            }else{
-                ignored.push(line);
-            }   
+        if(saveDiscordTimeByMode(parsed.bossName, eventDate, uploadMode)){
+            updated.push(`${parsed.bossName} ${labelDiscordMode(uploadMode)} ${parsed.timeText}`);
         }else{
             ignored.push(line);
         }
-    }
-    
     });
 
     alert(
-        `Discord Sync complete.\nUpdated: ${updated.length}` +
+        `Discord Sync complete.\nMode: ${labelDiscordMode(uploadMode)}\nUpdated: ${updated.length}` +
         (updated.length ? `\n\n${updated.join("\n")}` : "") +
         (ignored.length ? `\n\nIgnored:\n${ignored.slice(0,8).join("\n")}` : "")
     );
 }
-
 function loadTOD(name){
     return bossData[name] || "";
 }
@@ -2468,7 +2496,7 @@ box.innerHTML=`
 </div>
 
 <div class="today-header">
-<div>BOSS</div><div>STATUS</div><div>SPAWN TIME</div><div>RESPAWN</div><div>COUNTDOWN</div><div>TIME OF DEATH</div>
+<div>BOSS</div><div>STATUS</div><div>SPAWN TIME</div><div>RESPAWN TIME</div><div>COUNTDOWN</div><div>TIME OF DEATH</div>
 </div>`;
 
 todayList.sort((a,b)=>a.time-b.time);
