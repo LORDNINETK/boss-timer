@@ -795,6 +795,11 @@ button{
 }
 
 
+.log-modal{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,0.58);box-sizing:border-box;}
+.log-panel{width:min(760px,96vw);max-height:88vh;padding:16px;border:1px solid rgba(206,158,55,0.72);border-left:4px solid #ffd54f;border-radius:8px;background:linear-gradient(160deg,rgba(255,229,158,0.12),rgba(0,0,0,0.28)),rgba(14,11,7,0.9);box-shadow:0 0 24px rgba(0,0,0,0.5),0 0 16px rgba(245,200,75,0.2);}
+.log-title{color:#f5c84b;font-weight:900;letter-spacing:1.4px;margin-bottom:10px;text-shadow:0 0 10px rgba(245,200,75,0.55);}
+#dailyLogText{width:100%;height:min(58vh,520px);box-sizing:border-box;resize:vertical;padding:12px;color:#fff4cf;background:rgba(0,0,0,0.45);border:1px solid rgba(206,158,55,0.45);border-radius:5px;font-family:Consolas,monospace;font-size:12px;line-height:1.45;white-space:pre;}
+.log-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;}
 /* ===== MOBILE RESPONSIVE ===== */
 @media (max-width: 900px){
 
@@ -1171,6 +1176,7 @@ button{
     <div class="header-actions">
         <button onclick="loginAdmin()">Login</button>
         <button onclick="registerUser()">Register User</button>
+        <button onclick="showDailyLogs()">Logs</button>
         <button id="approveUsersBtn" onclick="approveUsers()" style="display:none;">Manage Users</button>
     </div>
     <div id="lastEditor" style="margin-top:8px; font-size:12px; color:#ccc;">
@@ -1233,6 +1239,17 @@ button{
 
 </div>
 
+<div id="logModal" class="log-modal" style="display:none;">
+  <div class="log-panel">
+    <div class="log-title">Daily Boss Log</div>
+    <textarea id="dailyLogText" readonly></textarea>
+    <div class="log-actions">
+      <button onclick="copyDailyLogs()">Copy</button>
+      <button onclick="downloadDailyLogs()">Download</button>
+      <button onclick="closeDailyLogs()">Close</button>
+    </div>
+  </div>
+</div>
 <script>
 
 
@@ -1240,6 +1257,7 @@ button{
 // ===== GlOBAL STORAGE =====
 let bossData = {};
 let bossLogs = {};
+let allBossLogEntries = [];
 let confirmedBosses = {};
 let isAdmin = false;
 let lastGlobalLog = null;
@@ -1531,6 +1549,7 @@ function saveTOD(name, value){
         tod: utc,
         editedBy: currentUser,
         role: userRole,
+        action: "time of death edited",
         time: getNowInTZ().getTime()
     });
 }
@@ -1683,19 +1702,9 @@ async function discordSync(){
         return;
     }
 
-    let text = "";
-
-    try{
-        if(navigator.clipboard && navigator.clipboard.readText){
-            text = await navigator.clipboard.readText();
-        }
-    }catch(err){
-        console.log("Clipboard read unavailable:", err);
-    }
-
-    text = prompt(
+    let text = prompt(
         "Paste Discord boss schedule / time text here:",
-        text || ""
+        ""
     );
 
     if(!text) return;
@@ -2581,6 +2590,125 @@ function renderOverduePanel(list){
     applyBossSearch();
 }
 
+function getAllBossDefinitions(){
+    return [
+        ...dynamicBosses.map(b => ({...b, type:"dyn", category:"DYNAMIC"})),
+        ...fixedBosses.map(([n,t]) => ({name:n, times:t, type:"fix", category:"FIXED"})),
+        ...kransiaBosses.map(([n,t]) => ({name:n, times:t, type:"fix", category:"KRANSIA"}))
+    ];
+}
+
+function formatLogDateTime(value){
+    if(!value) return "--";
+    let d = new Date(value);
+    if(isNaN(d)) return "--";
+    return d.toLocaleString("en-US", {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit",timeZone:selectedTZ});
+}
+
+function isTodayInSelectedTZ(value){
+    if(!value) return false;
+    let d = new Date(value);
+    if(isNaN(d)) return false;
+    return isSameDay(d, getNowInTZ());
+}
+
+function getBossTimerInfo(b){
+    let respawn = null;
+    let tod = null;
+    if(b.type === "dyn"){
+        tod = loadTOD(b.name);
+        respawn = nextInterval(tod, b.h);
+    }else{
+        respawn = nextSchedule(b.times, b.name);
+    }
+    let diff = respawn ? (respawn.getTime() - getNowInTZ().getTime()) / 1000 : null;
+    let idle = respawn && diff <= 0;
+    let status = "--";
+    if(respawn){
+        if(idle) status = "IDLE / NOT VERIFIED";
+        else if(isSameDay(respawn, getNowInTZ())) status = "TODAY";
+        else if(isSameDay(respawn, getTomorrow())) status = "TOMORROW";
+        else status = "SCHEDULED";
+    }
+    return {respawn, tod, diff, idle, status};
+}
+
+function formatLogClock(value){
+    if(!value) return "--";
+    let d = new Date(value);
+    if(isNaN(d)) return "--";
+    return d.toLocaleTimeString("en-US", {hour:"numeric", minute:"2-digit", timeZone:selectedTZ});
+}
+
+function buildDailyLogText(){
+    let now = getNowInTZ();
+    let dateTitle = now.toLocaleDateString("en-US", {month:"long", day:"numeric", year:"numeric", timeZone:selectedTZ}).toUpperCase();
+    let currentRows = getAllBossDefinitions().map(b => ({b, info:getBossTimerInfo(b)}));
+    let lines = [];
+
+    lines.push("TIME OF DEATH | " + dateTitle);
+    lines.push("");
+
+    ["DYNAMIC", "FIXED", "KRANSIA"].forEach(type => {
+        lines.push(type);
+
+        let rows = currentRows
+            .filter(x => getBossCategory(x.b) === type)
+            .filter(x => x.info.respawn && (isTodayInSelectedTZ(x.info.respawn.getTime()) || x.info.idle || isTodayInSelectedTZ(x.info.tod)))
+            .sort((a,b) => (a.info.respawn || 0) - (b.info.respawn || 0));
+
+        rows.forEach(x => {
+            let timeValue = type === "DYNAMIC" ? x.info.tod : x.info.respawn;
+            lines.push(`${x.b.name.toUpperCase()} ${formatLogClock(timeValue)}`);
+        });
+
+        lines.push("");
+    });
+
+    return lines.join("\n").trim();
+}
+function showDailyLogs(){
+    let modal = document.getElementById("logModal");
+    let text = document.getElementById("dailyLogText");
+    if(!modal || !text) return;
+    text.value = buildDailyLogText();
+    modal.style.display = "flex";
+}
+
+function closeDailyLogs(){
+    let modal = document.getElementById("logModal");
+    if(modal) modal.style.display = "none";
+}
+
+async function copyDailyLogs(){
+    let text = document.getElementById("dailyLogText");
+    if(!text) return;
+    try{
+        await navigator.clipboard.writeText(text.value);
+        alert("Daily log copied.");
+    }catch(err){
+        text.focus();
+        text.select();
+        document.execCommand("copy");
+        alert("Daily log copied.");
+    }
+}
+
+function downloadDailyLogs(){
+    let text = document.getElementById("dailyLogText");
+    if(!text) return;
+    let parts = getTZParts(getNowInTZ(), selectedTZ);
+    let fileName = "boss-log-" + parts.year + "-" + String(parts.month).padStart(2,"0") + "-" + String(parts.day).padStart(2,"0") + ".txt";
+    let blob = new Blob([text.value], {type:"text/plain;charset=utf-8"});
+    let url = URL.createObjectURL(blob);
+    let a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+}
 function sendPushToAll(message){
     console.log("Push notifications are sent by Firebase Functions:", message);
 }
@@ -2757,6 +2885,7 @@ db.ref("logs").on("value", snap => {
 
     snap.forEach(child => {
         let data = child.val();
+        allBossLogEntries.push(data);
 
         // ✅ per boss latest
         if(!bossLogs[data.boss] || new Date(data.time) > new Date(bossLogs[data.boss].time)){
